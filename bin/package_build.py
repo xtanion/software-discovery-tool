@@ -3,6 +3,7 @@ import requests
 import re
 import sys
 import gzip
+import json
 
 DATA = ""
 SDT_BASE = '/opt/software-discovery-tool'
@@ -265,6 +266,37 @@ def pds(q):
 		DATA.close()
 		print(f"Saved!\nfilename: {q}")
 
+def zos_fetch():
+	url = "https://api.github.com/orgs/ZOSOpenTools/repos?type=all&per_page=200&page=1"
+	file_name = f"{DATA_FILE_LOCATION}/ZOS_Software_List.json"
+	file_name = "../distro_data/data_files/ZOS_Software_List.json"
+	with open(file_name, 'r') as fobj:
+		f = json.load(fobj)
+	packages = []
+	for repos in f:
+		packages.append(repos['packageName'].lower())
+
+	try:
+		req = requests.get(url)
+		data = req.json()
+		if req.status_code == 200:
+			for repo in data:
+				if repo['name'].endswith('port'):
+					pkgname = repo['name'][:-4]
+					desc = repo['description']
+
+					if pkgname not in packages:
+						with open(file_name, 'r+') as file:
+							data = json.load(file)
+							out = {"packageName": pkgname, "description": desc}
+							data.append(out)
+							file.seek(0)
+							json.dump(data, file, indent=4)
+					else:
+						pass
+	except Exception as e:
+		print("couldn't update!")
+
 if __name__ == "__main__":
 	
 	try:
@@ -292,6 +324,9 @@ if __name__ == "__main__":
 	elif file == 'RockyLinux' or file == 'rockylinux':
 		print(f"Extracting data for {file} ... ")
 		rockylinux()
+	elif file == 'ZOs' or file == 'zos':
+		print('Updating ZOS data for file ZOS_Software_list.json')
+		zos_fetch()
 	else:
 		print(
 			"Usage:\n./package_build <exact_file_name.json>\n\t\t\t[if data is from PDS]"
